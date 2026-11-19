@@ -4,10 +4,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
-from game import Engine, GameError
+from game import Engine, GameError, REQUIRED_TARGETS
 from catalog import MODES, ROLES
 
 TEST_KEY = "test-only-not-a-real-api-key"
@@ -113,6 +114,80 @@ class PublicReleaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(restored.view()["my_role"])
         await restored.client.aclose()
         restored.db.close()
+
+    async def test_hiding_dealt_card_completes_handoff(self):
+        self.configure()
+        self.e.new(6, "classic", 1, human_count=2)
+        await asyncio.wait_for(self.e.task, 1)
+        await self.e.handoff(True)
+        await self.e.handoff(False)
+        await asyncio.wait_for(self.e.task, 1)
+        self.assertEqual(self.e.view()["handoff"], 2)
+        self.assertEqual(self.e.g["queue"][0]["kind"], "deal")
+        self.assertEqual(self.e.g["queue"][0]["seat"], 2)
+        # 上一位重复发送遮屏，不得替尚未接过手机的下一位确认身份。
+        await self.e.handoff(False)
+        self.assertEqual(self.e.g["queue"][0]["seat"], 2)
+
+    async def test_hiding_during_skill_or_pause_does_not_submit_action(self):
+        self.configure()
+        self.e.new(6, "classic", 1, human_count=2)
+        await asyncio.wait_for(self.e.task, 1)
+        await self.e.handoff(True)
+        await self.e.pause()
+        await self.e.handoff(False)
+        self.assertEqual(self.e.g["queue"][0]["kind"], "deal")
+        self.e.g["paused"] = False
+        self.e.g["human"] = 1
+        self.e.g["queue"] = [self.e.action("inspect", 1)]
+        self.e.g["waiting"] = self.e.request(self.e.g["queue"][0])
+        await self.e.handoff(False)
+        self.assertEqual(self.e.g["queue"][0]["kind"], "inspect")
+        self.assertTrue(self.e.view()["locked"])
+        await self.e.handoff(True)
+        self.assertEqual(self.e.view()["waiting"]["kind"], "inspect")
+
+    async def test_both_handoff_buttons_reach_first_dawn(self):
+        self.configure()
+        for count in (6, 10, 15):
+            for hide_button in (False, True):
+                with self.subTest(count=count, hide_button=hide_button):
+                    async def ai_choice(action):
+                        targets = self.e.request(action)["targets"]
+                        return {"target": targets[0] if action["kind"] in REQUIRED_TARGETS else None,
+                                "choice": "pass", "text": "继续观察。", "plan": "继续观察。"}
+
+                    # 只替换测试中的模型与提示音等待，保留真实队列、技能和交接结算。
+                    with patch.object(self.e, "ai", side_effect=ai_choice), patch("game.asyncio.sleep", new=AsyncMock()):
+                        self.e.new(count, "classic", 1, human_count=2)
+                        deals = []
+                        for _ in range(40):
+                            await asyncio.wait_for(self.e.task, 1)
+                            self.assertFalse(self.e.g["paused"], self.e.g["error"])
+                            if self.e.g["phase"] != "night":
+                                break
+                            view = self.e.view()
+                            if not view["locked"]:
+                                self.assertEqual(view["waiting"]["kind"], "review")
+                                await self.e.handoff(False)
+                                continue
+                            self.assertTrue(view["locked"])
+                            self.assertIn(view["handoff"], (1, 2))
+                            await self.e.handoff(True)
+                            waiting = self.e.view()["waiting"]
+                            if waiting["kind"] == "deal":
+                                deals.append(waiting["seat"])
+                            if waiting["kind"] == "review" or hide_button and waiting["kind"] in ("deal", "night_pass"):
+                                await self.e.handoff(False)
+                            else:
+                                targets = waiting["targets"]
+                                await self.e.submit({"choice": "pass", "target": targets[0] if waiting["kind"] in REQUIRED_TARGETS else None})
+                        else:
+                            self.fail("双人交接没有在首夜结束前收敛。")
+                        self.assertEqual(deals, [1, 2])
+                        self.assertIn(self.e.g["phase"], ("day", "election"))
+                        self.assertTrue(any("天亮请睁眼" in event["text"] for event in self.e.g["events"]))
+                        await self.e.pause()
 
     async def test_deepseek_and_agnes_tool_request_payload(self):
         self.configure()

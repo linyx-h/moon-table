@@ -480,7 +480,7 @@ class Engine:
             "guard": "今晚守护谁？可不守护，不可连续守护同一人。",
             "wolf": "与狼队商议袭击目标。可故意袭击普通狼队友，尝试让女巫救下他来骗取信任；狼美人不能成为这种目标。",
             "wolf_chat": "先与队友商议袭击谁和白天的分工。这里只提议，全部商议完成后另行投票。",
-            "deal": "记住你的身份与座位。看完后遮住屏幕，再把手机交给下一位。" if self.shared() else "这是你的身份牌。记住身份与技能，确认后开始首夜。",
+            "deal": "记住你的身份与座位。确认后自动遮屏交接；两位玩家确认后开始首夜。" if self.shared() else "这是你的身份牌。记住身份与技能，确认后开始首夜。",
             "review": "查看本次结果与自己的线索；看完后遮住屏幕，再交接手机。",
             "night_pass": "本轮没有你的主动技能。请遮住屏幕后交给下一位，其他玩家保持闭眼。",
             "peek": "狼人正在睁眼。要冒险偷看本夜行动的狼队吗？偷看期间画面亮起，有 20% 被发现风险。",
@@ -852,7 +852,7 @@ class Engine:
                 raise GameError("当前没有待交接的玩家。")
             self.g["human"] = w["seat"]
         else:
-            if w and w["kind"] == "review":
+            if w and w["seat"] == self.g["human"] and not self.g["paused"] and w["kind"] in ("deal", "review", "night_pass"):
                 self.g["queue"].pop(0)
                 self.g["waiting"] = None
             self.g["human"] = None

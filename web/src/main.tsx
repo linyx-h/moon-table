@@ -723,7 +723,7 @@ function App() {
           {w?.kind === "playback" && <button className="target skip-speech" disabled={g.paused || busy} onClick={skipSpeech}>跳过朗读 · 下一位 →</button>}
           {w && ["deal", "review", "night_pass", "tomb"].includes(w.kind) && <div className="handoff-actions">
             {w.kind === "review" ? <button className="primary wide" disabled={busy || g.paused} onClick={() => run("handoff")}>我已看完 · 遮屏交接</button>
-              : <button className="primary wide" disabled={busy || g.paused} onClick={() => submit("act", null)}>{w.kind === "deal" ? "记住身份 · 确认" : w.kind === "tomb" ? "领取守墓线索" : "本轮无需行动 · 确认"}</button>}
+              : <button className="primary wide" disabled={busy || g.paused} onClick={() => submit("act", null)}>{w.kind === "deal" ? g.human_count > 1 ? g.human === g.humans[g.humans.length - 1] ? "身份确认 · 开始首夜" : "记住身份 · 遮屏交接" : "记住身份 · 确认" : w.kind === "tomb" ? "领取守墓线索" : "本轮无需行动 · 遮屏交接"}</button>}
           </div>}
           {w && ["wolf_chat", "wolf"].includes(w.kind) && g.my_role !== "gargoyle" && <div className="wolf-discussion" aria-label="狼队商议">
             <strong>{w.kind === "wolf_chat" ? "先商议，再投票" : "商议结束 · 选择袭击目标"}</strong>
@@ -744,7 +744,7 @@ function App() {
               {speech && <button className="primary send" disabled={!canSend} onClick={() => submit()}><Icon name="send" />{w?.kind === "free" && !text.trim() ? "跳过" : "发送发言"}</button>}</div>
           </div>}
           <div className="composer-hint"><span>{(speech || w?.kind === "wolf") ? recording ? "● 正在录音，识别后可修改再发送" : "语音识别后可编辑 · 发言围绕具体线索" : ""}</span>{humanAlive && ["day", "discussion", "election"].includes(g.phase) && ["wolf", "wolfking", "whitewolf"].includes(g.my_role) && <button className="danger-text" disabled={g.paused || busy} onClick={() => armSkill("explode")}>发动自爆{g.my_role === "whitewolf" ? " · 带走一人" : ""}</button>}{g.can_duel && ["day", "discussion"].includes(g.phase) && <button className="danger-text" disabled={g.paused || busy} onClick={() => armSkill("duel")}>骑士决斗</button>}</div>
-          {g.human_count > 1 && !g.locked && !g.winner && <button className="privacy-lock" disabled={busy} onClick={() => run("handoff")}>遮住身份</button>}
+          {g.human_count > 1 && !g.locked && !g.winner && !["deal", "review", "night_pass"].includes(w?.kind || "") && <button className="privacy-lock" disabled={busy} onClick={() => run("handoff")}>遮住身份</button>}
         </div>}
       </section>
 
