@@ -34,7 +34,7 @@ def main():
             subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(bundle), str(target)], check=True)
         else:
             shutil.make_archive(str(output / f"MoonTable-{platform_name}"), "zip", bundle.parent, bundle.name)
-        print(f"已生成：{output / ('MoonTable-' + platform_name + '.zip')}")
+        print(f"Generated: {output / ('MoonTable-' + platform_name + '.zip')}")
 
 
 if __name__ == "__main__":

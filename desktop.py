@@ -6,6 +6,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
+import httpx
+
 from android_server import Runtime
 
 
@@ -13,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description="月下圆桌电脑版")
     parser.add_argument("--browser", action="store_true", help="使用浏览器窗口")
     parser.add_argument("--data-dir", type=Path, help="指定本机数据目录")
+    parser.add_argument("--check", action="store_true", help="检查打包后的本机服务并退出")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     if sys.platform == "darwin":
@@ -27,9 +30,20 @@ def main():
     runtime = Runtime(args.data_dir or data, web)
     runtime.http.daemon_threads = True
     url = f"http://127.0.0.1:{runtime.http.server_port}/"
-    print(f"月下圆桌已启动：{url}", flush=True)
+    print(f"Moon Table: {url}", flush=True)
     try:
-        if args.browser:
+        if args.check:
+            with httpx.Client() as client:
+                response = client.get(url + "api/health")
+                response.raise_for_status()
+                if response.json().get("ok") is not True:
+                    raise RuntimeError("Local service check failed")
+                response = client.get(url + "api/settings")
+                response.raise_for_status()
+                if "api_key" in response.json():
+                    raise RuntimeError("Settings must not expose API keys")
+            print("Local service check passed", flush=True)
+        elif args.browser:
             webbrowser.open(url)
             threading.Event().wait()
         else:
