@@ -12,7 +12,7 @@
 
 | 平台 | 下载文件 | 使用方式 |
 | --- | --- | --- |
-| Android 7.0+ | `月下圆桌-Android.apk` | 安装后打开，支持 ARM64 / ARMv7 |
+| Android 7.0+ | `MoonTable-Android.apk` | 安装后打开，支持 ARM64 / ARMv7 |
 | macOS · Apple Silicon | `MoonTable-macOS-AppleSilicon.zip` | 解压，将 `MoonTable.app` 放入“应用程序”后打开 |
 | Windows | `MoonTable-Windows.zip` | 由 Windows 构建任务生成，解压整个文件夹后打开 `MoonTable.exe` |
 
